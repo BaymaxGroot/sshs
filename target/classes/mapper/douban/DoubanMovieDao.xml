@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="wx.mini.dao.douban.DoubanMovieDao">
+	<resultMap type="wx.mini.entity.douban.MovieType" id="movieType">
+		<result column="id" jdbcType="INTEGER" property="id"/>
+		<result column="type" jdbcType="VARCHAR" property="type"/>
+	</resultMap>
+	<resultMap type="wx.mini.entity.douban.MovieBasic" id="movieBasic">
+		<result column="m_id" jdbcType="INTEGER" property="id"/>
+		<result column="m_title" jdbcType="VARCHAR" property="title"/>
+		<result column="m_director" jdbcType="VARCHAR" property="director"/>
+		<result column="m_actors" jdbcType="VARCHAR" property="actors"/>
+		<result column="m_rate" jdbcType="FLOAT" property="rate"/>
+		<result column="m_cover_url" jdbcType="VARCHAR" property="cover_url"/>
+		<result column="m_playable" jdbcType="TINYINT" property="playable"/>
+	</resultMap>
+	<resultMap type="wx.mini.entity.douban.MovieDetail" id="movieDetail">
+		<result column="m_id" jdbcType="INTEGER" property="id"/>
+		<result column="m_title" jdbcType="VARCHAR" property="title"/>
+		<result column="m_cover_url" jdbcType="VARCHAR" property="coverUrl"/>
+		<result column="types" jdbcType="VARCHAR" property="types"/>
+	</resultMap>
+	<resultMap type="wx.mini.entity.douban.MoviePlayLink" id="moviePlayLinks">
+		<result column="m_play_app" jdbcType="VARCHAR" property="platforam"/>
+		<result column="m_play_url" jdbcType="VARCHAR" property="link"/>
+	</resultMap>
+	<select id="queryMovieType" resultMap="movieType">
+		SELECT
+			id,
+			type
+		FROM
+			db_movie_type
+	</select>
+	
+	<select id="queryMovieList" resultMap="movieBasic">
+			SELECT
+				TOP(#{size})
+				db_movie.m_id,
+				m_title,
+				m_rate,
+				m_cover_url,
+				m_director,
+				actor AS m_actors,
+				m_playable
+			FROM
+				db_movie, (
+					SELECT
+						m_id,
+						STUFF(
+							( 
+								SELECT '/ '+ actor 
+								FROM db_movie_actor_link b 
+								WHERE b.m_id = a.m_id 
+								FOR XML PATH('')
+							),1 ,1, ''
+						) actor
+					FROM
+						db_movie_actor_link a
+					GROUP BY m_id
+				) ac
+			WHERE
+				db_movie.m_id NOT IN (
+					SELECT
+						TOP(#{from})	
+						m_id
+					FROM
+						db_movie
+					ORDER BY m_id
+				) AND db_movie.m_id = ac.m_id
+			ORDER BY m_id
+	</select>
+	
+	<select id="queryMovieListThroughType" resultMap="movieBasic">
+		
+		SELECT
+			TOP(#{size}) 
+			db_movie.m_id,
+			m_title,
+			m_rate,
+			m_cover_url,
+			m_director,
+			actor as m_actors,
+			m_playable
+		FROM
+			db_movie, db_movie_type_link, (
+				SELECT
+					m_id,
+					STUFF(
+						( 
+							SELECT '/ '+ actor 
+							FROM db_movie_actor_link b 
+							WHERE b.m_id = a.m_id 
+							FOR XML PATH('')
+						),1 ,1, ''
+					) actor
+				FROM
+					db_movie_actor_link a
+				GROUP BY m_id
+			) ac
+		WHERE
+			db_movie.m_id NOT IN(
+				SELECT
+					TOP(#{from})	
+					m_id
+				FROM
+					db_movie, db_movie_type_link
+				WHERE
+					m_id = movie_id AND type_id = #{type}
+				ORDER BY m_id
+			) AND db_movie.m_id = movie_id AND type_id = #{type} AND db_movie.m_id = ac.m_id
+		ORDER BY m_id
+		
+	</select>
+	<select id="queryMovieListThroughName" resultMap="movieBasic">
+	
+		SELECT
+			TOP(#{size}) 
+			db_movie.m_id,
+			m_title,
+			m_rate,
+			m_cover_url,
+			m_director,
+			m_playable,
+			actor as m_actors
+		FROM
+			db_movie, (
+				SELECT
+					m_id,
+					STUFF(
+						( 
+							SELECT '/ '+ actor 
+							FROM db_movie_actor_link b 
+							WHERE b.m_id = a.m_id 
+							FOR XML PATH('')
+						),1 ,1, ''
+					) actor
+				FROM
+					db_movie_actor_link a
+				GROUP BY m_id
+			) ac
+		WHERE
+			db_movie.m_id NOT IN(
+				SELECT
+					TOP(#{from})	
+					m_id
+				FROM
+					db_movie
+				WHERE
+					m_title LIKE '%' + #{name} + '%'
+				ORDER BY m_id
+			) AND m_title LIKE '%' + #{name} + '%' AND db_movie.m_id = ac.m_id
+		ORDER BY m_id
+		
+	</select>
+	<select id="queryMovieListThroughNameAndType" resultMap="movieBasic">
+	
+		SELECT
+			TOP(#{size}) 
+			db_movie.m_id,
+			m_title,
+			m_rate,
+			m_cover_url,
+			m_director,
+			m_playable,
+			actor as m_actors
+		FROM
+			db_movie, db_movie_type_link, (
+				SELECT
+					m_id,
+					STUFF(
+						( 
+							SELECT '/ '+ actor 
+							FROM db_movie_actor_link b 
+							WHERE b.m_id = a.m_id 
+							FOR XML PATH('')
+						),1 ,1, ''
+					) actor
+				FROM
+					db_movie_actor_link a
+				GROUP BY m_id
+			) ac
+		WHERE
+			m_title LIKE '%'+ #{name} +'%' AND db_movie.m_id NOT IN(
+				SELECT
+					TOP(#{from})	
+					m_id
+				FROM
+					db_movie, db_movie_type_link
+				WHERE
+					m_title LIKE '%'+ #{name} +'%' AND m_id = movie_id AND type_id = #{type}
+				ORDER BY m_id
+			) AND db_movie.m_id = movie_id AND type_id = #{type} AND db_movie.m_id = ac.m_id
+		ORDER BY m_id
+		
+	</select>
+	
+	<select id="queryMovieDetailThroughID" resultMap="movieDetail">
+		
+		select
+			m_id,
+			m_title,
+			m_cover_url,
+			types
+		from
+			db_movie,(
+				select
+					movie_id,
+					STUFF(
+						( 
+							SELECT '/'+ type 
+							FROM db_movie_type_link b, db_movie_type 
+							WHERE b.movie_id = a.movie_id and type_id = db_movie_type.id
+							FOR XML PATH('')
+						),1 ,1, ''
+					) types
+				from
+					db_movie_type_link a, db_movie_type 
+				where
+					type_id = db_movie_type.id
+				group by movie_id
+			) m_t
+		where
+			m_id = #{id} and m_id = movie_id
+		
+	</select>
+	
+	<select id="queryMoviePlayLinks" resultMap="moviePlayLinks">
+		
+		select
+			m_play_app,
+			m_play_url
+		from
+			db_movie_play_link
+		where
+			m_id = #{id}
+		
+	</select>
+	
+</mapper>
